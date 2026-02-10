@@ -163,7 +163,9 @@ export default function Home() {
 
   return (
     <main className="wrapper">
-      <section className="inner min-h-[calc(100dvh-10.75rem)] text-3xl !mx-auto !w-full h-full !mb-8 !p-2 flex flex-col items-center justify-start">
+      <section
+        className={`inner min-h-[calc(100dvh-10.75rem)] text-3xl !mx-auto !w-full h-full !p-2 flex flex-col items-center justify-start ${!showSpecial ? "!mb-16" : "!mb-8"}`}
+      >
         <div className="flex flex-col items-start !pb-4 !pt-4 justify-center max-w-100 w-full">
           <Today />
         </div>
