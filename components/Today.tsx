@@ -27,14 +27,11 @@ export default function Today() {
   const { ymd, year, month, day, weekday } = kstNowParts();
 
   return (
-    <div className="flex items-center justify-center [&_*]:!text-pilltime-grayDark/50">
-      <button className="flex gap-2 items-center justify-center !pb-2 !px-4 rounded-md [&_h3]:!text-lg [&_span]:!text-[16px] [&_span]:opacity-75 hover:opacity-90 transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-105">
+    <div className="flex items-center justify-center [&_*]:!text-black/50">
+      <div className="flex flex-col items-start justify-center !pb-2 !px-4 rounded-md [&_h3]:!text-lg [&_span]:!text-[16px] [&_span]:opacity-75 transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 *:leading-tight *:tracking-tight">
         <h3 suppressHydrationWarning>
           {year}
-          <span>년</span>
-        </h3>
-        <h3 suppressHydrationWarning>
-          {month}
+          <span>년</span> {month}
           <span>월</span> {day}
           <span>일</span>
         </h3>
@@ -42,7 +39,7 @@ export default function Today() {
           {weekday}
           <span>요일</span>
         </h3>
-      </button>
+      </div>
     </div>
   );
 }
