@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import Today from "@/components/Today";
-import { Check, Undo2 } from "lucide-react";
 import Image from "next/image";
+import { supabase } from "@/lib/supabase";
+import { Check, Undo2 } from "lucide-react";
+import Today from "@/components/Today";
 
 const slots = ["morning", "afternoon", "evening", "night"];
 
@@ -13,18 +13,19 @@ type FeedLog = {
   slot: "morning" | "afternoon" | "evening" | "night" | "special";
   done_at: string;
 };
+
 type CompletedMap = Partial<Record<FeedLog["slot"], string>>;
 
 export default function Home() {
+  /* ---------- STATE ---------- */
   const [completed, setCompleted] = useState<CompletedMap>({});
   const [undoSlot, setUndoSlot] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(
     null,
   );
 
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-  }).format(new Date());
+  /* ---------- CONST ---------- */
 
   const timeFmt = new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -32,59 +33,19 @@ export default function Home() {
     minute: "2-digit",
     hour12: false,
   });
-
   const showSpecial = !!completed.special;
   const visibleSlots = showSpecial ? [...slots, "special"] : [...slots];
 
+  /* ---------- FUNC ---------- */
+
+  function getToday() {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul",
+    }).format(new Date());
+  }
+
   function formatHM(iso: string) {
     return timeFmt.format(new Date(iso));
-  }
-
-  async function loadToday() {
-    const { data } = await supabase
-      .from("feed_logs")
-      .select("slot, done_at")
-      .eq("date", today);
-
-    if (data) {
-      const map: CompletedMap = {};
-      data.forEach((d) => {
-        map[d.slot as FeedLog["slot"]] = d.done_at;
-      });
-      setCompleted(map);
-    }
-  }
-
-  async function handleClick(slot: string) {
-    const done_at = new Date().toISOString();
-
-    const { error } = await supabase
-      .from("feed_logs")
-      .insert({ date: today, slot, done_at });
-
-    if (!error) {
-      setUndoSlot(slot);
-
-      const timeout = setTimeout(() => {
-        setUndoSlot(null);
-      }, 5000);
-
-      setTimer(timeout);
-    }
-  }
-
-  async function handleUndo() {
-    if (!undoSlot) return;
-
-    if (timer) clearTimeout(timer);
-
-    await supabase
-      .from("feed_logs")
-      .delete()
-      .eq("date", today)
-      .eq("slot", undoSlot);
-
-    setUndoSlot(null);
   }
 
   function slotKr(slot: FeedLog["slot"]) {
@@ -112,6 +73,63 @@ export default function Home() {
     return slotKr;
   }
 
+  /* ---------- ASYNC FUNC ---------- */
+
+  async function loadToday() {
+    const { data, error } = await supabase
+      .from("feed_logs")
+      .select("slot, done_at")
+      .eq("date", getToday());
+
+    if (error) {
+      console.warn("로딩 중 에러 발생:", error);
+    }
+
+    const map: CompletedMap = {};
+    if (data) {
+      data.forEach((d) => {
+        map[d.slot as FeedLog["slot"]] = d.done_at;
+      });
+    }
+
+    setCompleted(map);
+    setLoading(false);
+  }
+
+  async function handleClick(slot: string) {
+    const done_at = new Date().toISOString();
+
+    const { error } = await supabase
+      .from("feed_logs")
+      .insert({ date: getToday(), slot, done_at });
+
+    if (!error) {
+      setUndoSlot(slot);
+
+      const timeout = setTimeout(() => {
+        setUndoSlot(null);
+      }, 5000);
+
+      setTimer(timeout);
+    }
+  }
+
+  async function handleUndo() {
+    if (!undoSlot) return;
+
+    if (timer) clearTimeout(timer);
+
+    await supabase
+      .from("feed_logs")
+      .delete()
+      .eq("date", getToday())
+      .eq("slot", undoSlot);
+
+    setUndoSlot(null);
+  }
+
+  /* ---------- SUPABASE REALTIME ---------- */
+
   useEffect(() => {
     loadToday();
 
@@ -126,7 +144,7 @@ export default function Home() {
         },
         (payload) => {
           const row = payload.new as FeedLog;
-          if (row.date === today) {
+          if (row.date === getToday()) {
             setCompleted((prev) => ({ ...prev, [row.slot]: row.done_at }));
           }
         },
@@ -140,7 +158,7 @@ export default function Home() {
         },
         (payload) => {
           const row = payload.old as FeedLog;
-          if (row.date === today) {
+          if (row.date === getToday()) {
             setCompleted((prev) => {
               const next = { ...prev };
               delete next[row.slot];
@@ -155,6 +173,8 @@ export default function Home() {
       supabase.removeChannel(channel);
     };
   }, []);
+
+  /* ---------- 요일 지날 때 리렌더를 위한 1분마다 갱신 ---------- */
 
   useEffect(() => {
     const interval = setInterval(loadToday, 60000);
@@ -172,6 +192,7 @@ export default function Home() {
         <div
           className={`border-2 bg-white rounded-md px-4 flex flex-col gap-4 shadow-md border-green-600 max-w-100 w-full relative ${!showSpecial ? "pb-12" : "pb-4"}`}
         >
+          {/* ---------- CARD UPPER SECTION ---------- */}
           <div className="flex gap-4 items-center justify-between border-b border-black/25 p-4 relative">
             <div className="flex flex-col gap-4 min-w-1/2 grow">
               <b className="text-4xl !text-green-400">유월이</b>
@@ -195,7 +216,20 @@ export default function Home() {
               />
             </div>
           </div>
-          <div className="p-4 w-full flex flex-col gap-8 items-center">
+          {/* ---------- CARD LOWER SECTION ---------- */}
+          <div className="p-4 w-full flex flex-col gap-8 items-center relative">
+            {!!loading && (
+              <div className="absolute top-0 left-0 w-full h-full backdrop-blur-xs z-50 rounded-lg flex items-center justify-center">
+                <Image
+                  src={"/ohmypet_icon.png"}
+                  alt="favcon_png"
+                  width={72}
+                  height={72}
+                  className="animate-spin"
+                  loading="eager"
+                />
+              </div>
+            )}
             {visibleSlots.map((slot) => {
               const s = slot as FeedLog["slot"];
               const doneAt = completed[s];
@@ -206,7 +240,7 @@ export default function Home() {
                 >
                   <button
                     onClick={() => handleClick(s)}
-                    disabled={!!doneAt}
+                    disabled={!!doneAt || loading}
                     className={` transition shadow-2xs border border-[#99999925] rounded-lg !p-2 ${doneAt && "bg-green-500"} transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95`}
                   >
                     <Check
@@ -231,8 +265,10 @@ export default function Home() {
               );
             })}
           </div>
+          {/* ---------- Special Offer (특식) ---------- */}
           {!showSpecial && (
             <button
+              disabled={loading}
               onClick={() => {
                 handleClick("special");
               }}
@@ -264,6 +300,7 @@ export default function Home() {
           )}
         </div>
 
+        {/* ---------- UNDO BTN ---------- */}
         {undoSlot && (
           <div
             onClick={handleUndo}

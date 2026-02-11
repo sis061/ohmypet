@@ -16,6 +16,7 @@ export default function Header() {
           height={60}
           onClick={handleClick}
           className="transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-90"
+          loading="eager"
         />
         <div className="flex flex-col rotate-6 -space-y-1.5">
           <span className="font-extrabold text-xl !text-white leading-tight tracking-tight">
