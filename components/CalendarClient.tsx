@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import { supabase } from "@/lib/supabase";
 import { ko } from "date-fns/locale";
@@ -106,7 +107,7 @@ export default function CalendarClient() {
     const segments = slots
       .map((slot) => {
         const end = start + step;
-        const color = filled.has(slot) ? "#22c55e" : "#e5e7eb";
+        const color = filled.has(slot) ? "#22c55e" : "#99999950";
         const segment = `${color} ${start}% ${end}%`;
         start = end;
         return segment;
@@ -185,12 +186,20 @@ export default function CalendarClient() {
   }
 
   return (
-    <div
-      className={
-        "grid gap-4 grid-rows-[auto_auto_1fr] max-h-[calc(100dvh-11.5rem)] h-screen"
-      }
-    >
-      <div className="rounded-lg bg-card text-base text-foreground w-full shadow-md">
+    <div className={"grid gap-4 grid-rows-[auto_auto_1fr] h-full"}>
+      <div className="rounded-lg bg-card text-base text-foreground w-full h-full shadow-md relative">
+        {!!loading && (
+          <div className="absolute top-0 left-0 w-full h-full backdrop-blur-xs z-50 rounded-lg flex items-center justify-center">
+            <Image
+              src={"/ohmypet_icon.png"}
+              alt="favcon_png"
+              width={72}
+              height={72}
+              className="animate-spin"
+              loading="eager"
+            />
+          </div>
+        )}
         <Calendar
           month={month}
           onMonthChange={(m) =>
@@ -214,7 +223,7 @@ export default function CalendarClient() {
             "[&_.rdp-head_cell]:p-0",
             "[&_.rdp-cell]:p-0 [&_.rdp-cell]:align-top",
             "[&_.rdp-day]:aspect-auto [&_.rdp-day]:w-full",
-            "[&_.rdp-day]:h-[calc(var(--cell-size)*2.25)] md:[&_.rdp-day]:h-[calc(var(--cell-size)*2.5)]",
+            "[&_.rdp-day]:h-[calc(var(--cell-size)*1.85)] md:[&_.rdp-day]:h-[calc(var(--cell-size)*2)]",
             "[&_.rdp-day]:box-border",
             "[--cell-size:--spacing(10)] md:[--cell-size:--spacing(13)]",
           ].join(" ")}
