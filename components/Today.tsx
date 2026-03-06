@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 export function kstNowParts() {
   const now = new Date();
   // KST로 안전 변환
@@ -24,7 +28,17 @@ export function toYYYYMMDD(date: Date, tz = "Asia/Seoul") {
 }
 
 export default function Today() {
-  const { ymd, year, month, day, weekday } = kstNowParts();
+  const [now, setNow] = useState(kstNowParts());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(kstNowParts());
+    }, 60000); // 1분마다 갱신
+
+    return () => clearInterval(timer);
+  }, []);
+
+  const { ymd, year, month, day, weekday } = now;
 
   return (
     <div className="flex items-center justify-center [&_*]:!text-black/50">
