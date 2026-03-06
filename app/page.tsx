@@ -96,21 +96,39 @@ export default function Home() {
     setLoading(false);
   }
 
-  async function handleClick(slot: string) {
+  async function handleClick(slot: FeedLog["slot"]) {
+    if (completed[slot] || loading) return;
     const done_at = new Date().toISOString();
 
+    // 낙관적 업데이트
+    setCompleted((prev) => ({
+      ...prev,
+      [slot]: done_at,
+    }));
+    setUndoSlot(slot);
+
+    if (timer) clearTimeout(timer);
+    const timeout = setTimeout(() => {
+      setUndoSlot(null);
+    }, 7500);
+    setTimer(timeout);
+
+    // db 반영
     const { error } = await supabase
       .from("feed_logs")
       .insert({ date: getToday(), slot, done_at });
 
-    if (!error) {
-      setUndoSlot(slot);
+    // 에러 시 롤백
+    if (error) {
+      console.error("db insert 에러 발생:", error);
 
-      const timeout = setTimeout(() => {
-        setUndoSlot(null);
-      }, 5000);
-
-      setTimer(timeout);
+      setCompleted((prev) => {
+        const next = { ...prev };
+        delete next[slot];
+        return next;
+      });
+      setUndoSlot(null);
+      clearTimeout(timeout);
     }
   }
 
@@ -212,7 +230,8 @@ export default function Home() {
                 width={190}
                 height={190}
                 loading="eager"
-                className="transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-150"
+                className="transition-transform duration-500 ease-in-out cursor-pointer touch-manipulation active:animate-spin"
+                onContextMenu={(e) => e.preventDefault()}
               />
             </div>
           </div>
@@ -311,8 +330,8 @@ export default function Home() {
                 <b className="text-base !text-white">
                   <span>🦴 </span>
                   {slotKr(undoSlot as FeedLog["slot"])}
-                </b>
-                을 먹었어요!
+                </b>{" "}
+                밥을 먹었어요!
               </span>
               <button
                 onClick={handleUndo}
