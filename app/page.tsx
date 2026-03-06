@@ -8,13 +8,13 @@ import Today from "@/components/Today";
 
 const slots = ["morning", "afternoon", "evening", "night"];
 
-type FeedLog = {
+export type FeedLog = {
   date: string;
   slot: "morning" | "afternoon" | "evening" | "night" | "special";
   done_at: string;
 };
 
-type CompletedMap = Partial<Record<FeedLog["slot"], string>>;
+export type CompletedMap = Partial<Record<FeedLog["slot"], string>>;
 
 export default function Home() {
   /* ---------- STATE ---------- */

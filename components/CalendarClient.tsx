@@ -1,0 +1,239 @@
+"use client";
+
+import React, { useEffect, useMemo, useState } from "react";
+import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
+import { supabase } from "@/lib/supabase";
+import { ko } from "date-fns/locale";
+import { format } from "date-fns";
+import type { FeedLog } from "@/app/page";
+
+type CompletedByDate = Record<string, FeedLog[]>;
+
+export default function CalendarClient() {
+  /* ---------- STATE ---------- */
+  const [month, setMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    new Date(),
+  );
+  const [completedByDate, setCompletedByDate] = useState<CompletedByDate>({});
+  const [loading, setLoading] = useState(true);
+
+  /* ---------- CONST ---------- */
+
+  const timeFmt = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const formatters = useMemo(
+    () => ({
+      formatCaption: (m: Date) => format(m, "yyyy년 M월", { locale: ko }),
+      formatWeekdayName: (d: Date) => format(d, "EEEEE", { locale: ko }),
+      formatDay: (d: Date) => format(d, "d", { locale: ko }),
+    }),
+    [],
+  );
+
+  const labels = useMemo(
+    () => ({
+      labelDayButton: (date: Date) =>
+        format(date, "yyyy년 M월 d일 (EEE)", { locale: ko }),
+      labelNext: () => "다음 달",
+      labelPrevious: () => "이전 달",
+    }),
+    [],
+  );
+
+  // const selectedLogs = useMemo(() => {
+  //   if (!selectedDate) return [];
+  //   return completedByDate[toYmd(selectedDate)] ?? [];
+  // }, [selectedDate, completedByDate]);
+
+  /* ---------- FUNC ---------- */
+
+  function toYmd(date: Date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+
+  function getMonthRange(date: Date) {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
+
+    return {
+      start: toYmd(start),
+      end: toYmd(end),
+    };
+  }
+
+  function makeCompletedByDate(data: FeedLog[]) {
+    const map: CompletedByDate = {};
+
+    data.forEach((d) => {
+      if (!map[d.date]) {
+        map[d.date] = [];
+      }
+
+      map[d.date].push(d);
+    });
+
+    return map;
+  }
+
+  function renderLog(logs: FeedLog[]) {
+    const slotOrder = [
+      "morning",
+      "afternoon",
+      "evening",
+      "night",
+      "special",
+    ] as const;
+
+    const hasSpecial = logs.some((log) => log.slot === "special");
+    const max = hasSpecial ? 5 : 4;
+    const slots = slotOrder.slice(0, max);
+    const filled = new Set(logs.map((l) => l.slot));
+    const step = 100 / max;
+    let start = 0;
+
+    const segments = slots
+      .map((slot) => {
+        const end = start + step;
+        const color = filled.has(slot) ? "#22c55e" : "#e5e7eb";
+        const segment = `${color} ${start}% ${end}%`;
+        start = end;
+        return segment;
+      })
+      .join(", ");
+
+    return (
+      <div className="relative h-10 w-10 rounded-full overflow-hidden">
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background: `conic-gradient(${segments})`,
+          }}
+        />
+
+        {Array.from({ length: max }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute left-[52.5%] top-0 h-1/2 w-[2px] origin-bottom -translate-x-1/2 bg-[#e5e7eb]"
+            style={{
+              transform: `translateX(-50%) rotate(${(360 / max) * i}deg)`,
+            }}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  /* ---------- ASYNC FUNC ---------- */
+
+  async function loadMonth(targetMonth: Date) {
+    setLoading(true);
+
+    const { start, end } = getMonthRange(targetMonth);
+
+    const { data, error } = await supabase
+      .from("feed_logs")
+      .select("date, slot, done_at")
+      .gte("date", start)
+      .lt("date", end)
+      .order("date", { ascending: true })
+      .order("done_at", { ascending: true });
+
+    if (error) {
+      console.warn("월 로딩 중 에러 발생:", error);
+      setCompletedByDate({});
+      setLoading(false);
+      return;
+    }
+
+    const map = makeCompletedByDate((data ?? []) as FeedLog[]);
+    setCompletedByDate(map);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    loadMonth(month);
+  }, [month]);
+
+  function DayButton({ children, modifiers, day, ...props }: any) {
+    const logs = completedByDate[toYmd(day.date)] ?? [];
+
+    return (
+      <CalendarDayButton
+        day={day}
+        modifiers={modifiers}
+        {...props}
+        className="flex flex-col items-center justify-start gap-1 transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-90 !bg-transparent"
+      >
+        {children}
+        <div className="mt-1 flex flex-col items-center justify-center gap-0.5">
+          {renderLog(logs)}
+        </div>
+      </CalendarDayButton>
+    );
+  }
+
+  return (
+    <div
+      className={
+        "grid gap-4 grid-rows-[auto_auto_1fr] max-h-[calc(100dvh-11.5rem)] h-screen"
+      }
+    >
+      <div className="rounded-lg bg-card text-base text-foreground w-full shadow-md">
+        <Calendar
+          month={month}
+          onMonthChange={(m) =>
+            setMonth(new Date(m.getFullYear(), m.getMonth(), 1))
+          }
+          mode="single"
+          selected={selectedDate}
+          onSelect={(date) => {
+            if (!date) return;
+            setSelectedDate(date);
+          }}
+          captionLayout="label"
+          showOutsideDays
+          weekStartsOn={0}
+          locale={ko}
+          formatters={formatters}
+          labels={labels}
+          className={[
+            "w-full !p-2",
+            "[&_.rdp-table]:table-fixed [&_.rdp-table]:w-full",
+            "[&_.rdp-head_cell]:p-0",
+            "[&_.rdp-cell]:p-0 [&_.rdp-cell]:align-top",
+            "[&_.rdp-day]:aspect-auto [&_.rdp-day]:w-full",
+            "[&_.rdp-day]:h-[calc(var(--cell-size)*2.25)] md:[&_.rdp-day]:h-[calc(var(--cell-size)*2.5)]",
+            "[&_.rdp-day]:box-border",
+            "[--cell-size:--spacing(10)] md:[--cell-size:--spacing(13)]",
+          ].join(" ")}
+          classNames={{
+            day: "w-full outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 transition-none !p-1",
+            button_previous:
+              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110",
+            button_next:
+              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110",
+          }}
+          modifiersClassNames={{
+            today: "ring-2 ring-green-400 text-foreground rounded-md",
+            selected: "ring-2 ring-green-600 rounded-md",
+          }}
+          components={{
+            DayButton: (props) => <DayButton {...props} />,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
