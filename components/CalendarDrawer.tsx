@@ -144,13 +144,14 @@ export default function CalendarDrawer({
     e: ChangeEvent<HTMLInputElement>,
     targetSlot: FeedLog["slot"],
   ) {
+    e.stopPropagation();
     const v = e.target.value;
-    if (!v || !targetSlot) return;
+    if (!v || !targetSlot || loading) return;
 
     const done_at = combineKstDateAndTime(selectedDate, v);
     await insertLog({ date: selectedYmd, slot: targetSlot, done_at });
 
-    // 다음에 동일한 시간을 선택할 수 있도록 input 값을 초기화
+    // input 값을 초기화
     e.target.value = "";
   }
 
@@ -249,6 +250,7 @@ export default function CalendarDrawer({
                     disabled={loading}
                     aria-label={`${s} 시간 선택`}
                     className="absolute inset-0 z-[999] w-full h-full cursor-pointer opacity-0"
+                    onClick={(e) => e.stopPropagation()}
                     onChange={(e) => onPastTimeChange(e, s)}
                     // 웹 브라우저 대응: 클릭(터치)하는 순간 피커를 강제로 호출
                     onPointerDown={(e) => {
