@@ -232,7 +232,7 @@ export default function CalendarDrawer({
           {visibleSlots.map((slot) => {
             const s = slot as FeedLog["slot"];
             const doneAt = completed[s];
-            const isPastSlot = !isToday && !doneAt;
+            const isPastSlot = !isToday && !doneAt && !loading;
             return (
               <div key={slot} className="relative w-full flex justify-center">
                 <CardRadioGroup
@@ -252,13 +252,12 @@ export default function CalendarDrawer({
                     onChange={(e) => onPastTimeChange(e, s)}
                     // 웹 브라우저 대응: 클릭(터치)하는 순간 피커를 강제로 호출
                     onPointerDown={(e) => {
-                      try {
-                        e.currentTarget.showPicker();
-                      } catch (err) {
-                        // 오래된 브라우저 에러 방지 처리
-                        console.warn(
-                          "showPicker is not supported in this browser",
-                        );
+                      if (e.pointerType === "mouse") {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch {
+                          console.warn("showPicker not supported");
+                        }
                       }
                     }}
                   />
