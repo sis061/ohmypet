@@ -72,20 +72,17 @@ export default function CalendarDrawer({
       const done_at = new Date().toISOString();
       await insertLog({ date: getTodayYmd(), slot, done_at });
       return;
+    }
+    setPendingSlot(slot);
+
+    const el = timeInputRef.current;
+    if (!el) return;
+
+    if (el?.showPicker) {
+      el.showPicker();
     } else {
-      setPendingSlot(slot);
-      const el = timeInputRef.current as
-        | (HTMLInputElement & { showPicker?: () => void })
-        | null;
-
-      if (!el) return;
-
-      if (el.showPicker) {
-        el.showPicker();
-      } else {
-        el.focus();
-        el.click();
-      }
+      el.focus();
+      el.click();
     }
   }
 
@@ -220,9 +217,9 @@ export default function CalendarDrawer({
         <input
           type="time"
           ref={timeInputRef}
-          className="sr-only"
+          className="fixed top-0 left-0 w-[1px] h-[1px] opacity-0"
           onChange={(e) => onPastTimeChange(e.target.value)}
-          onBlur={() => setPendingSlot(null)}
+          // onBlur={() => setPendingSlot(null)}
         />
         <div
           className={`border-2 bg-white rounded-md px-4 py-6 flex flex-col items-center gap-4 shadow-md border-green-600 max-w-100 w-full relative`}
