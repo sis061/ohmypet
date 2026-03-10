@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { Check, Undo2 } from "lucide-react";
 import Today from "@/components/Today";
 
-const slots = ["morning", "afternoon", "evening", "night"];
+export const slots = ["morning", "afternoon", "evening", "night"];
 
 export type FeedLog = {
   date: string;
@@ -15,6 +15,41 @@ export type FeedLog = {
 };
 
 export type CompletedMap = Partial<Record<FeedLog["slot"], string>>;
+
+export function slotKr(slot: FeedLog["slot"]) {
+  let slotKr;
+  switch (slot) {
+    case "morning":
+      slotKr = "아침";
+      break;
+    case "afternoon":
+      slotKr = "오전";
+      break;
+    case "evening":
+      slotKr = "오후";
+      break;
+    case "night":
+      slotKr = "저녁";
+      break;
+    case "special":
+      slotKr = "특식";
+      break;
+    default:
+      slotKr = slot;
+      break;
+  }
+  return slotKr;
+}
+
+export function formatHM(iso: string) {
+  const timeFmt = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return timeFmt.format(new Date(iso));
+}
 
 export default function Home() {
   /* ---------- STATE ---------- */
@@ -27,12 +62,6 @@ export default function Home() {
 
   /* ---------- CONST ---------- */
 
-  const timeFmt = new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
   const showSpecial = !!completed.special;
   const visibleSlots = showSpecial ? [...slots, "special"] : [...slots];
 
@@ -42,35 +71,6 @@ export default function Home() {
     return new Intl.DateTimeFormat("en-CA", {
       timeZone: "Asia/Seoul",
     }).format(new Date());
-  }
-
-  function formatHM(iso: string) {
-    return timeFmt.format(new Date(iso));
-  }
-
-  function slotKr(slot: FeedLog["slot"]) {
-    let slotKr;
-    switch (slot) {
-      case "morning":
-        slotKr = "아침";
-        break;
-      case "afternoon":
-        slotKr = "오전";
-        break;
-      case "evening":
-        slotKr = "오후";
-        break;
-      case "night":
-        slotKr = "저녁";
-        break;
-      case "special":
-        slotKr = "특식";
-        break;
-      default:
-        slotKr = slot;
-        break;
-    }
-    return slotKr;
   }
 
   /* ---------- ASYNC FUNC ---------- */

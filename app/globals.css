@@ -79,7 +79,7 @@ a {
   inset: 0;
   background: #008236;
   transform: translateX(-100%);
-  animation: fill 5s linear forwards;
+  animation: fill 7.5s linear forwards;
 }
 
 @keyframes fill {

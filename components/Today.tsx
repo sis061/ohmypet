@@ -7,7 +7,6 @@ export function kstNowParts() {
   // KST로 안전 변환
   const kst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
   return {
-    ymd: toYYYYMMDD(kst, "Asia/Seoul"),
     year: String(kst.getFullYear()),
     month: String(kst.getMonth() + 1),
     day: String(kst.getDate()),
@@ -16,15 +15,6 @@ export function kstNowParts() {
       timeZone: "Asia/Seoul",
     }).format(now),
   };
-}
-
-export function toYYYYMMDD(date: Date, tz = "Asia/Seoul") {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
 }
 
 export default function Today() {
@@ -38,7 +28,7 @@ export default function Today() {
     return () => clearInterval(timer);
   }, []);
 
-  const { ymd, year, month, day, weekday } = now;
+  const { year, month, day, weekday } = now;
 
   return (
     <div className="flex items-center justify-center [&_*]:!text-black/50">
