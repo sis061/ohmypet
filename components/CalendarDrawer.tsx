@@ -247,19 +247,21 @@ export default function CalendarDrawer({
                 {isPastSlot && (
                   <input
                     type="time"
+                    defaultValue=""
                     disabled={loading}
                     aria-label={`${s} 시간 선택`}
                     className="absolute inset-0 z-[999] w-full h-full cursor-pointer opacity-0"
                     onClick={(e) => e.stopPropagation()}
-                    onChange={(e) => onPastTimeChange(e, s)}
-                    // 웹 브라우저 대응: 클릭(터치)하는 순간 피커를 강제로 호출
+                    onBlur={(e) => {
+                      if (e.target.value && !loading) {
+                        onPastTimeChange(e, s);
+                      }
+                    }}
                     onPointerDown={(e) => {
-                      if (e.pointerType === "mouse") {
-                        try {
-                          e.currentTarget.showPicker();
-                        } catch {
-                          console.warn("showPicker not supported");
-                        }
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch {
+                        console.warn("showPicker not supported");
                       }
                     }}
                   />
