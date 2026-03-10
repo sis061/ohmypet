@@ -259,9 +259,9 @@ export default function CalendarClient() {
           classNames={{
             day: "w-full outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 transition-none !p-1",
             button_previous:
-              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110",
+              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110 h-9 w-8",
             button_next:
-              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110",
+              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110 h-9 w-8 flex items-center justify-end",
           }}
           modifiersClassNames={{
             today: "ring-2 ring-green-400 text-foreground rounded-md",
