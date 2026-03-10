@@ -1,12 +1,17 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+
+import CalendarDrawer from "./CalendarDrawer";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
+
 import { supabase } from "@/lib/supabase";
 import { ko } from "date-fns/locale";
 import { format } from "date-fns";
-import type { FeedLog } from "@/app/page";
+import { toYmdKst } from "@/lib/utils";
+
+import { FeedLog } from "@/types/global";
 
 type CompletedByDate = Record<string, FeedLog[]>;
 
@@ -21,15 +26,14 @@ export default function CalendarClient() {
   );
   const [completedByDate, setCompletedByDate] = useState<CompletedByDate>({});
   const [loading, setLoading] = useState(true);
+  const [openCard, setOpenCard] = useState(false);
 
   /* ---------- CONST ---------- */
 
-  const timeFmt = new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  const selectedLogs = useMemo(() => {
+    if (!selectedDate) return [];
+    return completedByDate[toYmdKst(selectedDate)] ?? [];
+  }, [selectedDate, completedByDate]);
 
   const formatters = useMemo(
     () => ({
@@ -50,18 +54,17 @@ export default function CalendarClient() {
     [],
   );
 
-  // const selectedLogs = useMemo(() => {
-  //   if (!selectedDate) return [];
-  //   return completedByDate[toYmd(selectedDate)] ?? [];
-  // }, [selectedDate, completedByDate]);
+  const disabledMatcher = { after: getKstToday() };
 
   /* ---------- FUNC ---------- */
 
-  function toYmd(date: Date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+  function getKstToday() {
+    const now = new Date();
+    const kst = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
+    );
+
+    return new Date(kst.getFullYear(), kst.getMonth(), kst.getDate());
   }
 
   function getMonthRange(date: Date) {
@@ -69,14 +72,13 @@ export default function CalendarClient() {
     const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
 
     return {
-      start: toYmd(start),
-      end: toYmd(end),
+      start: toYmdKst(start),
+      end: toYmdKst(end),
     };
   }
 
   function makeCompletedByDate(data: FeedLog[]) {
     const map: CompletedByDate = {};
-
     data.forEach((d) => {
       if (!map[d.date]) {
         map[d.date] = [];
@@ -84,11 +86,10 @@ export default function CalendarClient() {
 
       map[d.date].push(d);
     });
-
     return map;
   }
 
-  function renderLog(logs: FeedLog[]) {
+  function renderLogPie(logs: FeedLog[]) {
     const slotOrder = [
       "morning",
       "afternoon",
@@ -163,12 +164,39 @@ export default function CalendarClient() {
     setLoading(false);
   }
 
+  /* ---------- SUPABASE REALTIME ---------- */
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("feed_logs_realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "feed_logs",
+        },
+        () => {
+          loadMonth(month);
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [month]);
+
+  /* ---------- RE-RENDER : 월 변경 시 ---------- */
+
   useEffect(() => {
     loadMonth(month);
   }, [month]);
 
+  /* ---------- 요일 버튼 ---------- */
+
   function DayButton({ children, modifiers, day, ...props }: any) {
-    const logs = completedByDate[toYmd(day.date)] ?? [];
+    const logs = completedByDate[toYmdKst(day.date)] ?? [];
 
     return (
       <CalendarDayButton
@@ -179,7 +207,7 @@ export default function CalendarClient() {
       >
         {children}
         <div className="mt-1 flex flex-col items-center justify-center gap-0.5">
-          {renderLog(logs)}
+          {renderLogPie(logs)}
         </div>
       </CalendarDayButton>
     );
@@ -207,9 +235,9 @@ export default function CalendarClient() {
           }
           mode="single"
           selected={selectedDate}
-          onSelect={(date) => {
-            if (!date) return;
-            setSelectedDate(date);
+          onDayClick={(day) => {
+            setSelectedDate(day);
+            setOpenCard(true);
           }}
           captionLayout="label"
           showOutsideDays
@@ -217,6 +245,7 @@ export default function CalendarClient() {
           locale={ko}
           formatters={formatters}
           labels={labels}
+          disabled={disabledMatcher}
           className={[
             "w-full !p-2",
             "[&_.rdp-table]:table-fixed [&_.rdp-table]:w-full",
@@ -230,9 +259,9 @@ export default function CalendarClient() {
           classNames={{
             day: "w-full outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 transition-none !p-1",
             button_previous:
-              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110",
+              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110 h-9 w-8",
             button_next:
-              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110",
+              "transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 hover:scale-110 h-9 w-8 flex items-center justify-end",
           }}
           modifiersClassNames={{
             today: "ring-2 ring-green-400 text-foreground rounded-md",
@@ -243,6 +272,18 @@ export default function CalendarClient() {
           }}
         />
       </div>
+      <CalendarDrawer
+        open={openCard}
+        onOpenChange={(open) => {
+          setOpenCard(open);
+          if (!open) {
+            setSelectedDate(undefined);
+          }
+        }}
+        selectedLogs={selectedLogs}
+        selectedDate={selectedDate ?? new Date()}
+        onLogChanged={() => loadMonth(month)}
+      />
     </div>
   );
 }

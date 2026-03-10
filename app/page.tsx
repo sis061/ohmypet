@@ -2,19 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { supabase } from "@/lib/supabase";
-import { Check, Undo2 } from "lucide-react";
+
+import CardRadioGroup from "@/components/CardRadioGroup";
+import UndoButton from "@/components/UndoButton";
 import Today from "@/components/Today";
 
-const slots = ["morning", "afternoon", "evening", "night"];
+import { supabase } from "@/lib/supabase";
+import { slots, toYmdKst } from "@/lib/utils";
 
-export type FeedLog = {
-  date: string;
-  slot: "morning" | "afternoon" | "evening" | "night" | "special";
-  done_at: string;
-};
-
-export type CompletedMap = Partial<Record<FeedLog["slot"], string>>;
+import { CompletedMap, FeedLog } from "@/types/global";
 
 export default function Home() {
   /* ---------- STATE ---------- */
@@ -27,51 +23,9 @@ export default function Home() {
 
   /* ---------- CONST ---------- */
 
-  const timeFmt = new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
+  const getTodayYmd = () => toYmdKst(new Date());
   const showSpecial = !!completed.special;
   const visibleSlots = showSpecial ? [...slots, "special"] : [...slots];
-
-  /* ---------- FUNC ---------- */
-
-  function getToday() {
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Seoul",
-    }).format(new Date());
-  }
-
-  function formatHM(iso: string) {
-    return timeFmt.format(new Date(iso));
-  }
-
-  function slotKr(slot: FeedLog["slot"]) {
-    let slotKr;
-    switch (slot) {
-      case "morning":
-        slotKr = "아침";
-        break;
-      case "afternoon":
-        slotKr = "오전";
-        break;
-      case "evening":
-        slotKr = "오후";
-        break;
-      case "night":
-        slotKr = "저녁";
-        break;
-      case "special":
-        slotKr = "특식";
-        break;
-      default:
-        slotKr = slot;
-        break;
-    }
-    return slotKr;
-  }
 
   /* ---------- ASYNC FUNC ---------- */
 
@@ -79,7 +33,7 @@ export default function Home() {
     const { data, error } = await supabase
       .from("feed_logs")
       .select("slot, done_at")
-      .eq("date", getToday());
+      .eq("date", getTodayYmd());
 
     if (error) {
       console.warn("로딩 중 에러 발생:", error);
@@ -116,7 +70,7 @@ export default function Home() {
     // db 반영
     const { error } = await supabase
       .from("feed_logs")
-      .insert({ date: getToday(), slot, done_at });
+      .insert({ date: getTodayYmd(), slot, done_at });
 
     // 에러 시 롤백
     if (error) {
@@ -140,7 +94,7 @@ export default function Home() {
     await supabase
       .from("feed_logs")
       .delete()
-      .eq("date", getToday())
+      .eq("date", getTodayYmd())
       .eq("slot", undoSlot);
 
     setUndoSlot(null);
@@ -162,7 +116,7 @@ export default function Home() {
         },
         (payload) => {
           const row = payload.new as FeedLog;
-          if (row.date === getToday()) {
+          if (row.date === getTodayYmd()) {
             setCompleted((prev) => ({ ...prev, [row.slot]: row.done_at }));
           }
         },
@@ -176,7 +130,7 @@ export default function Home() {
         },
         (payload) => {
           const row = payload.old as FeedLog;
-          if (row.date === getToday()) {
+          if (row.date === getTodayYmd()) {
             setCompleted((prev) => {
               const next = { ...prev };
               delete next[row.slot];
@@ -253,34 +207,13 @@ export default function Home() {
               const s = slot as FeedLog["slot"];
               const doneAt = completed[s];
               return (
-                <div
+                <CardRadioGroup
                   key={slot}
-                  className="flex w-full items-center justify-start gap-6"
-                >
-                  <button
-                    onClick={() => handleClick(s)}
-                    disabled={!!doneAt || loading}
-                    className={` transition shadow-2xs border border-[#99999925] rounded-lg !p-2 ${doneAt && "bg-green-500"} transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95`}
-                  >
-                    <Check
-                      strokeWidth={2.5}
-                      size={36}
-                      color={doneAt ? "#fafafa" : "#99999950"}
-                    />
-                  </button>
-                  <div className="flex items-center justify-start gap-4">
-                    <span
-                      className={`text-4xl transition-all duration-200 ${doneAt && "line-through !text-[#99999950]"}`}
-                    >
-                      {slotKr(s)}
-                    </span>
-                    {doneAt && (
-                      <span className="text-2xl !text-[#999999] transition-all duration-200">
-                        {formatHM(doneAt)}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  slot={s}
+                  doneAt={doneAt}
+                  loading={loading}
+                  onClick={handleClick}
+                />
               );
             })}
           </div>
@@ -320,29 +253,7 @@ export default function Home() {
         </div>
 
         {/* ---------- UNDO BTN ---------- */}
-        {undoSlot && (
-          <div
-            onClick={handleUndo}
-            className="fixed left-1/2 -translate-x-1/2 bottom-6 shadow-lg max-w-[95%] transition-all duration-200 ease-in-out"
-          >
-            <div className="bg-fill w-full h-full *:!text-white px-6 py-3 rounded-xl flex items-center justify-center gap-8 ">
-              <span className="text-base !text-white z-10 whitespace-nowrap overflow-hidden text-ellipsis">
-                <b className="text-base !text-white">
-                  <span>🦴 </span>
-                  {slotKr(undoSlot as FeedLog["slot"])}
-                </b>{" "}
-                밥을 먹었어요!
-              </span>
-              <button
-                onClick={handleUndo}
-                className="whitespace-nowrap overflow-hidden text-ellipsis flex items-center justify-center gap-1 font-semibold text-sm transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95"
-              >
-                <Undo2 size={12} color="#fff" className="!mb-1.5" />
-                되돌리기
-              </button>
-            </div>
-          </div>
-        )}
+        {undoSlot && <UndoButton slot={undoSlot} undo={handleUndo} />}
       </section>
     </main>
   );
