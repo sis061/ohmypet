@@ -1,13 +1,18 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import UndoButton from "./UndoButton";
+import CardRadioGroup from "./CardRadioGroup";
+
 import {
   Drawer,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { CompletedMap, FeedLog, formatHM, slotKr, slots } from "@/app/page";
-import { Check, Undo2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+
 import { supabase } from "@/lib/supabase";
+import { kstNowParts, slots, toYmdKst } from "@/lib/utils";
+
+import { CompletedMap, FeedLog } from "@/types/global";
 
 interface DrawerProps {
   open: boolean;
@@ -18,32 +23,6 @@ interface DrawerProps {
 }
 
 /* ---------- FUNC ---------- */
-
-function toYmdKst(date: Date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Seoul",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
-}
-
-function stripKstDate(date: Date) {
-  // KST로 안전 변환
-  const kst = new Date(
-    date.toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
-  );
-  const d = {
-    year: String(kst.getFullYear()),
-    month: String(kst.getMonth() + 1),
-    day: String(kst.getDate()),
-    weekday: new Intl.DateTimeFormat("ko-KR", {
-      weekday: "short",
-      timeZone: "Asia/Seoul",
-    }).format(date),
-  };
-  return `${d.year}년 ${d.month}월 ${d.day}일 ${d.weekday}요일`;
-}
 
 function combineKstDateAndTime(date: Date, hhmm: string) {
   const ymd = toYmdKst(date);
@@ -57,27 +36,20 @@ export default function CalendarDrawer({
   selectedDate,
   onLogChanged,
 }: DrawerProps) {
+  /* ---------- STATE ---------- */
+  const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState<CompletedMap>({});
+  const [pendingSlot, setPendingSlot] = useState<FeedLog["slot"] | null>(null);
+  const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const [undoInfo, setUndoInfo] = useState<{
     slot: FeedLog["slot"];
     date: string;
     done_at: string;
   } | null>(null);
-  const [pendingSlot, setPendingSlot] = useState<FeedLog["slot"] | null>(null);
-  const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const map: CompletedMap = {};
-    if (selectedLogs) {
-      selectedLogs.forEach((log) => {
-        map[log.slot as FeedLog["slot"]] = log.done_at;
-      });
-    }
-    setCompleted(map);
-  }, [selectedLogs]);
+  /* ---------- CONST ---------- */
 
   const selectedYmd = useMemo(() => toYmdKst(selectedDate), [selectedDate]);
   const getTodayYmd = () => toYmdKst(new Date());
@@ -86,7 +58,36 @@ export default function CalendarDrawer({
   const showSpecial = !!completed.special;
   const visibleSlots = showSpecial ? [...slots, "special"] : [...slots];
 
+  const dayRender = kstNowParts(selectedDate);
+  const { year, month, day, weekday } = dayRender;
+
   const timeInputRef = useRef<HTMLInputElement | null>(null);
+
+  /* ---------- ASYNC FUNC ---------- */
+
+  async function handleClick(slot: FeedLog["slot"]) {
+    if (completed[slot] || loading) return;
+
+    if (isToday) {
+      const done_at = new Date().toISOString();
+      await insertLog({ date: getTodayYmd(), slot, done_at });
+      return;
+    } else {
+      setPendingSlot(slot);
+      const el = timeInputRef.current as
+        | (HTMLInputElement & { showPicker?: () => void })
+        | null;
+
+      if (!el) return;
+
+      if (el.showPicker) {
+        el.showPicker();
+      } else {
+        el.focus();
+        el.click();
+      }
+    }
+  }
 
   async function insertLog(params: {
     date: string;
@@ -137,30 +138,6 @@ export default function CalendarDrawer({
     return true;
   }
 
-  async function handleClick(slot: FeedLog["slot"]) {
-    if (completed[slot] || loading) return;
-
-    if (isToday) {
-      const done_at = new Date().toISOString();
-      await insertLog({ date: getTodayYmd(), slot, done_at });
-      return;
-    } else {
-      setPendingSlot(slot);
-      const el = timeInputRef.current as
-        | (HTMLInputElement & { showPicker?: () => void })
-        | null;
-
-      if (!el) return;
-
-      if (el.showPicker) {
-        el.showPicker();
-      } else {
-        el.focus();
-        el.click();
-      }
-    }
-  }
-
   async function onPastTimeChange(v: string) {
     if (!v || !pendingSlot) return;
 
@@ -205,6 +182,16 @@ export default function CalendarDrawer({
     setUndoInfo(null);
   }
 
+  useEffect(() => {
+    const map: CompletedMap = {};
+    if (selectedLogs) {
+      selectedLogs.forEach((log) => {
+        map[log.slot as FeedLog["slot"]] = log.done_at;
+      });
+    }
+    setCompleted(map);
+  }, [selectedLogs]);
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
       <DrawerContent
@@ -212,7 +199,22 @@ export default function CalendarDrawer({
         aria-describedby="기록 확인 및 수정"
       >
         <DrawerHeader>
-          <DrawerTitle>{stripKstDate(selectedDate)}</DrawerTitle>
+          <DrawerTitle>
+            <div className="flex items-center justify-center [&_*]:!text-black/50">
+              <div className="flex gap-2 items-start justify-center[&_h3]:!text-lg [&_span]:!text-[16px] [&_span]:opacity-75 transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 *:leading-tight *:tracking-tight">
+                <h3 suppressHydrationWarning>
+                  {year}
+                  <span>년</span> {month}
+                  <span>월</span> {day}
+                  <span>일</span>
+                </h3>
+                <h3 suppressHydrationWarning>
+                  {weekday}
+                  <span>요일</span>
+                </h3>
+              </div>
+            </div>
+          </DrawerTitle>
         </DrawerHeader>
 
         <input
@@ -229,61 +231,20 @@ export default function CalendarDrawer({
             const s = slot as FeedLog["slot"];
             const doneAt = completed[s];
             return (
-              <div
+              <CardRadioGroup
                 key={slot}
-                className="flex w-full items-center justify-start gap-6"
-              >
-                <button
-                  onClick={() => handleClick(s)}
-                  disabled={!!doneAt || loading}
-                  className={` transition shadow-2xs border border-[#99999925] rounded-lg !p-2 ${doneAt && "bg-green-500"} transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95`}
-                >
-                  <Check
-                    strokeWidth={2.5}
-                    size={36}
-                    color={doneAt ? "#fafafa" : "#99999950"}
-                  />
-                </button>
-                <div className="flex items-center justify-start gap-4">
-                  <span
-                    className={`text-4xl transition-all duration-200 ${doneAt && "line-through !text-[#99999950]"}`}
-                  >
-                    {slotKr(s)}
-                  </span>
-                  {doneAt && (
-                    <span className="text-2xl !text-[#999999] transition-all duration-200">
-                      {formatHM(doneAt)}
-                    </span>
-                  )}
-                </div>
-              </div>
+                slot={s}
+                doneAt={doneAt}
+                loading={loading}
+                onClick={handleClick}
+              />
             );
           })}
         </div>
 
         {/* ---------- UNDO BTN ---------- */}
         {isToday && undoInfo && (
-          <div
-            onClick={handleUndo}
-            className="fixed left-1/2 -translate-x-1/2 bottom-6 shadow-lg max-w-[95%] transition-all duration-200 ease-in-out"
-          >
-            <div className="bg-fill w-full h-full *:!text-white px-6 py-3 rounded-xl flex items-center justify-center gap-8 ">
-              <span className="text-base !text-white z-10 whitespace-nowrap overflow-hidden text-ellipsis">
-                <b className="text-base !text-white">
-                  <span>🦴 </span>
-                  {slotKr(undoInfo.slot as FeedLog["slot"])}
-                </b>{" "}
-                밥을 먹었어요!
-              </span>
-              <button
-                onClick={handleUndo}
-                className="whitespace-nowrap overflow-hidden text-ellipsis flex items-center justify-center gap-1 font-semibold text-sm transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95"
-              >
-                <Undo2 size={12} color="#fff" className="!mb-1.5" />
-                되돌리기
-              </button>
-            </div>
-          </div>
+          <UndoButton slot={undoInfo.slot} undo={handleUndo} />
         )}
       </DrawerContent>
     </Drawer>

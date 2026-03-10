@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+
+import CalendarDrawer from "./CalendarDrawer";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
+
 import { supabase } from "@/lib/supabase";
 import { ko } from "date-fns/locale";
 import { format } from "date-fns";
-import type { FeedLog } from "@/app/page";
-import CalendarDrawer from "./CalendarDrawer";
+import { toYmdKst } from "@/lib/utils";
+
+import { FeedLog } from "@/types/global";
 
 type CompletedByDate = Record<string, FeedLog[]>;
 
@@ -25,6 +29,11 @@ export default function CalendarClient() {
   const [openCard, setOpenCard] = useState(false);
 
   /* ---------- CONST ---------- */
+
+  const selectedLogs = useMemo(() => {
+    if (!selectedDate) return [];
+    return completedByDate[toYmdKst(selectedDate)] ?? [];
+  }, [selectedDate, completedByDate]);
 
   const formatters = useMemo(
     () => ({
@@ -47,18 +56,15 @@ export default function CalendarClient() {
 
   const disabledMatcher = { after: getKstToday() };
 
-  const selectedLogs = useMemo(() => {
-    if (!selectedDate) return [];
-    return completedByDate[toYmd(selectedDate)] ?? [];
-  }, [selectedDate, completedByDate]);
-
   /* ---------- FUNC ---------- */
 
-  function toYmd(date: Date) {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+  function getKstToday() {
+    const now = new Date();
+    const kst = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
+    );
+
+    return new Date(kst.getFullYear(), kst.getMonth(), kst.getDate());
   }
 
   function getMonthRange(date: Date) {
@@ -66,8 +72,8 @@ export default function CalendarClient() {
     const end = new Date(date.getFullYear(), date.getMonth() + 1, 1);
 
     return {
-      start: toYmd(start),
-      end: toYmd(end),
+      start: toYmdKst(start),
+      end: toYmdKst(end),
     };
   }
 
@@ -131,15 +137,6 @@ export default function CalendarClient() {
     );
   }
 
-  function getKstToday() {
-    const now = new Date();
-    const kst = new Date(
-      now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }),
-    );
-
-    return new Date(kst.getFullYear(), kst.getMonth(), kst.getDate());
-  }
-
   /* ---------- ASYNC FUNC ---------- */
 
   async function loadMonth(targetMonth: Date) {
@@ -167,9 +164,7 @@ export default function CalendarClient() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    loadMonth(month);
-  }, [month]);
+  /* ---------- SUPABASE REALTIME ---------- */
 
   useEffect(() => {
     const channel = supabase
@@ -192,8 +187,16 @@ export default function CalendarClient() {
     };
   }, [month]);
 
+  /* ---------- RE-RENDER : 월 변경 시 ---------- */
+
+  useEffect(() => {
+    loadMonth(month);
+  }, [month]);
+
+  /* ---------- 요일 버튼 ---------- */
+
   function DayButton({ children, modifiers, day, ...props }: any) {
-    const logs = completedByDate[toYmd(day.date)] ?? [];
+    const logs = completedByDate[toYmdKst(day.date)] ?? [];
 
     return (
       <CalendarDayButton

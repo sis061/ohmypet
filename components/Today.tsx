@@ -1,28 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-export function kstNowParts() {
-  const now = new Date();
-  // KST로 안전 변환
-  const kst = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Seoul" }));
-  return {
-    year: String(kst.getFullYear()),
-    month: String(kst.getMonth() + 1),
-    day: String(kst.getDate()),
-    weekday: new Intl.DateTimeFormat("ko-KR", {
-      weekday: "short",
-      timeZone: "Asia/Seoul",
-    }).format(now),
-  };
-}
+import { kstNowParts } from "@/lib/utils";
 
 export default function Today() {
-  const [now, setNow] = useState(kstNowParts());
+  const [now, setNow] = useState(kstNowParts(new Date()));
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setNow(kstNowParts());
+      setNow(kstNowParts(new Date()));
     }, 60000); // 1분마다 갱신
 
     return () => clearInterval(timer);
