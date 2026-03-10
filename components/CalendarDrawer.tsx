@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import UndoButton from "./UndoButton";
 import CardRadioGroup from "./CardRadioGroup";
 
@@ -39,7 +39,7 @@ export default function CalendarDrawer({
   /* ---------- STATE ---------- */
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState<CompletedMap>({});
-  const [pendingSlot, setPendingSlot] = useState<FeedLog["slot"] | null>(null);
+  // const [pendingSlot, setPendingSlot] = useState<FeedLog["slot"] | null>(null);
   const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -61,29 +61,34 @@ export default function CalendarDrawer({
   const dayRender = kstNowParts(selectedDate);
   const { year, month, day, weekday } = dayRender;
 
-  const timeInputRef = useRef<HTMLInputElement | null>(null);
+  // const timeInputRef = useRef<HTMLInputElement | null>(null);
 
   /* ---------- ASYNC FUNC ---------- */
 
   async function handleClick(slot: FeedLog["slot"]) {
     if (completed[slot] || loading) return;
 
-    if (isToday) {
-      const done_at = new Date().toISOString();
-      await insertLog({ date: getTodayYmd(), slot, done_at });
-      return;
-    }
-    setPendingSlot(slot);
+    if (!isToday) return;
 
-    const el = timeInputRef.current;
-    if (!el) return;
+    const done_at = new Date().toISOString();
+    await insertLog({ date: getTodayYmd(), slot, done_at });
 
-    if (el?.showPicker) {
-      el.showPicker();
-    } else {
-      el.focus();
-      el.click();
-    }
+    // if (isToday) {
+    //   const done_at = new Date().toISOString();
+    //   await insertLog({ date: getTodayYmd(), slot, done_at });
+    //   return;
+    // }
+    // setPendingSlot(slot);
+
+    // const el = timeInputRef.current;
+    // if (!el) return;
+
+    // if (el?.showPicker) {
+    //   el.showPicker();
+    // } else {
+    //   el.focus();
+    //   el.click();
+    // }
   }
 
   async function insertLog(params: {
@@ -135,18 +140,18 @@ export default function CalendarDrawer({
     return true;
   }
 
-  async function onPastTimeChange(v: string) {
-    if (!v || !pendingSlot) return;
+  async function onPastTimeChange(
+    e: ChangeEvent<HTMLInputElement>,
+    targetSlot: FeedLog["slot"],
+  ) {
+    const v = e.target.value;
+    if (!v || !targetSlot) return;
 
-    const slot = pendingSlot;
     const done_at = combineKstDateAndTime(selectedDate, v);
-    await insertLog({ date: selectedYmd, slot, done_at });
+    await insertLog({ date: selectedYmd, slot: targetSlot, done_at });
 
-    setPendingSlot(null);
-
-    if (timeInputRef.current) {
-      timeInputRef.current.value = "";
-    }
+    // 다음에 동일한 시간을 선택할 수 있도록 input 값을 초기화
+    e.target.value = "";
   }
 
   async function handleUndo() {
@@ -214,27 +219,51 @@ export default function CalendarDrawer({
           </DrawerTitle>
         </DrawerHeader>
 
-        <input
+        {/* <input
           type="time"
           ref={timeInputRef}
           className="fixed top-0 left-0 w-[1px] h-[1px] opacity-0"
           onChange={(e) => onPastTimeChange(e.target.value)}
           // onBlur={() => setPendingSlot(null)}
-        />
+        /> */}
         <div
           className={`border-2 bg-white rounded-md px-4 py-6 flex flex-col items-center gap-4 shadow-md border-green-600 max-w-100 w-full relative`}
         >
           {visibleSlots.map((slot) => {
             const s = slot as FeedLog["slot"];
             const doneAt = completed[s];
+            const isPastSlot = !isToday && !doneAt;
             return (
-              <CardRadioGroup
-                key={slot}
-                slot={s}
-                doneAt={doneAt}
-                loading={loading}
-                onClick={handleClick}
-              />
+              <div key={slot} className="relative w-full flex justify-center">
+                <CardRadioGroup
+                  slot={s}
+                  doneAt={doneAt}
+                  loading={loading}
+                  onClick={handleClick}
+                />
+
+                {/* iOS Safari 버그 해결: 오버레이 투명 Input */}
+                {isPastSlot && (
+                  <input
+                    type="time"
+                    disabled={loading}
+                    aria-label={`${s} 시간 선택`}
+                    className="absolute inset-0 z-[999] w-full h-full cursor-pointer opacity-0"
+                    onChange={(e) => onPastTimeChange(e, s)}
+                    // 웹 브라우저 대응: 클릭(터치)하는 순간 피커를 강제로 호출
+                    onPointerDown={(e) => {
+                      try {
+                        e.currentTarget.showPicker();
+                      } catch (err) {
+                        // 오래된 브라우저 에러 방지 처리
+                        console.warn(
+                          "showPicker is not supported in this browser",
+                        );
+                      }
+                    }}
+                  />
+                )}
+              </div>
             );
           })}
         </div>
