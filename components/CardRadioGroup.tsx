@@ -6,7 +6,7 @@ interface CardRadioGroupProps {
   slot: FeedLog["slot"];
   doneAt: string | undefined;
   loading: boolean;
-  isPending: boolean;
+  isPending?: boolean;
   onClick: (slot: FeedLog["slot"]) => Promise<void>;
 }
 
@@ -14,7 +14,7 @@ export default function CardRadioGroup({
   slot,
   doneAt,
   loading,
-  isPending,
+  isPending = false,
   onClick,
 }: CardRadioGroupProps) {
   return (
