@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import UndoButton from "./UndoButton";
 import CardRadioGroup from "./CardRadioGroup";
 
@@ -39,7 +39,7 @@ export default function CalendarDrawer({
   /* ---------- STATE ---------- */
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState<CompletedMap>({});
-  // const [pendingSlot, setPendingSlot] = useState<FeedLog["slot"] | null>(null);
+  const [pendingSlot, setPendingSlot] = useState<FeedLog["slot"] | null>(null);
   const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -61,34 +61,31 @@ export default function CalendarDrawer({
   const dayRender = kstNowParts(selectedDate);
   const { year, month, day, weekday } = dayRender;
 
-  // const timeInputRef = useRef<HTMLInputElement | null>(null);
+  const timeInputRef = useRef<HTMLInputElement | null>(null);
 
   /* ---------- ASYNC FUNC ---------- */
 
   async function handleClick(slot: FeedLog["slot"]) {
     if (completed[slot] || loading) return;
 
-    if (!isToday) return;
+    if (isToday) {
+      const done_at = new Date().toISOString();
+      await insertLog({ date: getTodayYmd(), slot, done_at });
+      return;
+    }
+    setPendingSlot(slot);
 
-    const done_at = new Date().toISOString();
-    await insertLog({ date: getTodayYmd(), slot, done_at });
+    setTimeout(() => {
+      const el = timeInputRef.current;
+      if (!el) return;
 
-    // if (isToday) {
-    //   const done_at = new Date().toISOString();
-    //   await insertLog({ date: getTodayYmd(), slot, done_at });
-    //   return;
-    // }
-    // setPendingSlot(slot);
-
-    // const el = timeInputRef.current;
-    // if (!el) return;
-
-    // if (el?.showPicker) {
-    //   el.showPicker();
-    // } else {
-    //   el.focus();
-    //   el.click();
-    // }
+      if (el?.showPicker) {
+        el.showPicker();
+      } else {
+        el.focus();
+        el.click();
+      }
+    }, 500);
   }
 
   async function insertLog(params: {
@@ -137,6 +134,7 @@ export default function CalendarDrawer({
 
     onLogChanged();
     setLoading(false);
+    setPendingSlot(null);
     return true;
   }
 
@@ -150,6 +148,7 @@ export default function CalendarDrawer({
 
     const done_at = combineKstDateAndTime(selectedDate, v);
     await insertLog({ date: selectedYmd, slot: targetSlot, done_at });
+    setPendingSlot(null);
 
     // input 값을 초기화
     e.target.value = "";
@@ -195,6 +194,10 @@ export default function CalendarDrawer({
     setCompleted(map);
   }, [selectedLogs]);
 
+  useEffect(() => {
+    !open && setPendingSlot(null);
+  }, [open]);
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={false}>
       <DrawerContent
@@ -233,7 +236,8 @@ export default function CalendarDrawer({
           {visibleSlots.map((slot) => {
             const s = slot as FeedLog["slot"];
             const doneAt = completed[s];
-            const isPastSlot = !isToday && !doneAt && !loading;
+            const isPastSlot =
+              !isToday && !doneAt && !loading && s === pendingSlot;
             return (
               <div key={slot} className="relative w-full flex justify-center">
                 <CardRadioGroup
@@ -243,14 +247,14 @@ export default function CalendarDrawer({
                   onClick={handleClick}
                 />
 
-                {/* iOS Safari 버그 해결: 오버레이 투명 Input */}
                 {isPastSlot && (
                   <input
+                    ref={timeInputRef}
                     type="time"
                     defaultValue=""
                     disabled={loading}
                     aria-label={`${s} 시간 선택`}
-                    className="absolute inset-0 z-[999] w-full h-full cursor-pointer opacity-0"
+                    className="absolute left-37.5 z-[999] w-[47.5%] h-full cursor-pointer shadow-2xs border border-[#99999925] rounded-lg px-2"
                     onClick={(e) => e.stopPropagation()}
                     onBlur={(e) => {
                       if (e.target.value && !loading) {
