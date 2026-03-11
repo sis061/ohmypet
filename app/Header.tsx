@@ -37,7 +37,7 @@ export default function Header() {
         <div>
           {pathname !== "/" ? (
             <div
-              className="flex flex-col items-center justify-center gap-2"
+              className="flex flex-col items-center justify-center gap-2 cursor-pointer"
               onClick={() => router.push("/")}
             >
               <ListChecks color="#fff" size={24} />
@@ -47,7 +47,7 @@ export default function Header() {
             </div>
           ) : (
             <div
-              className="flex flex-col items-center justify-center gap-2"
+              className="flex flex-col items-center justify-center gap-2 cursor-pointer"
               onClick={() => router.push("/calendar")}
             >
               <CalendarSearch color="#fff" size={24} />
