@@ -1,4 +1,4 @@
-import { Check, Loader } from "lucide-react";
+import { Check, LoaderCircle } from "lucide-react";
 import { formatHM, slotKr } from "@/lib/utils";
 import { FeedLog } from "@/types/global";
 
@@ -21,11 +21,11 @@ export default function CardRadioGroup({
     <div className="flex w-full items-center justify-start gap-6">
       <button
         onClick={() => onClick(slot)}
-        disabled={!!doneAt || loading}
+        disabled={!!doneAt || loading || !!isPending}
         className={` transition shadow-2xs border border-[#99999925] rounded-lg !p-2 ${doneAt && "bg-green-500"} transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95`}
       >
         {!!isPending ? (
-          <Loader
+          <LoaderCircle
             strokeWidth={2.5}
             size={36}
             color="#99999950"
