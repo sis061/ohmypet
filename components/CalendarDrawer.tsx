@@ -249,28 +249,31 @@ export default function CalendarDrawer({
                 />
 
                 {isPastSlot && (
-                  <input
-                    ref={timeInputRef}
-                    type="time"
-                    defaultValue=""
-                    disabled={loading}
-                    aria-label={`${s} 시간 선택`}
-                    placeholder="시간을 선택하세요"
-                    className="absolute left-37.5 z-[999] w-[47.5%] h-full cursor-pointer shadow-2xs border border-[#99999925] rounded-lg px-2"
-                    onClick={(e) => e.stopPropagation()}
-                    onBlur={(e) => {
-                      if (e.target.value && !loading) {
-                        onPastTimeChange(e, s);
-                      }
-                    }}
-                    onPointerDown={(e) => {
-                      try {
-                        e.currentTarget.showPicker();
-                      } catch {
-                        console.warn("showPicker not supported");
-                      }
-                    }}
-                  />
+                  <div className="absolute left-37.5 z-[999] w-[47.5%] h-full">
+                    <input
+                      ref={timeInputRef}
+                      type="time"
+                      defaultValue=""
+                      disabled={loading}
+                      aria-label={`${s} 시간 선택`}
+                      className="w-full h-full cursor-pointer shadow-2xs border border-[#99999925] rounded-lg px-2 bg-transparent"
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={(e) => {
+                        if (e.target.value && !loading) {
+                          onPastTimeChange(e, s);
+                        }
+                      }}
+                      onPointerDown={(e) => {
+                        try {
+                          e.currentTarget.showPicker();
+                        } catch {}
+                      }}
+                    />
+
+                    <span className="pointer-events-none absolute left-1 top-1/2 -translate-y-1/2 !text-[#99999975] z-20 bg-white py-2 px-1">
+                      시간을 선택하세요
+                    </span>
+                  </div>
                 )}
               </div>
             );
