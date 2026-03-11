@@ -85,7 +85,7 @@ export default function CalendarDrawer({
         el.focus();
         el.click();
       }
-    }, 500);
+    }, 250);
   }
 
   async function insertLog(params: {
@@ -245,6 +245,7 @@ export default function CalendarDrawer({
                   doneAt={doneAt}
                   loading={loading}
                   onClick={handleClick}
+                  isPending={s === pendingSlot}
                 />
 
                 {isPastSlot && (
@@ -254,6 +255,7 @@ export default function CalendarDrawer({
                     defaultValue=""
                     disabled={loading}
                     aria-label={`${s} 시간 선택`}
+                    placeholder="시간을 선택하세요"
                     className="absolute left-37.5 z-[999] w-[47.5%] h-full cursor-pointer shadow-2xs border border-[#99999925] rounded-lg px-2"
                     onClick={(e) => e.stopPropagation()}
                     onBlur={(e) => {
