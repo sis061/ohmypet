@@ -3,30 +3,38 @@
 import { useEffect, useState } from "react";
 import { kstNowParts } from "@/lib/utils";
 
+type NowParts = ReturnType<typeof kstNowParts>;
+
 export default function Today() {
-  const [now, setNow] = useState(kstNowParts(new Date()));
+  const [now, setNow] = useState<NowParts | null>(null);
 
   useEffect(() => {
+    const updateDate = () => {
+      setNow(kstNowParts(new Date()));
+    };
+
+    updateDate();
+
     const timer = setInterval(() => {
       setNow(kstNowParts(new Date()));
-    }, 60000); // 1분마다 갱신
+    }, 60000);
 
     return () => clearInterval(timer);
   }, []);
 
-  const { year, month, day, weekday } = now;
-
   return (
-    <div className="flex items-center justify-center [&_*]:!text-black/50">
+    <div
+      className={`flex items-center justify-center [&_*]:!text-black/50 ${!now && `blur-xs`}`}
+    >
       <div className="flex flex-col items-start justify-center !pb-2 !px-4 rounded-md [&_h3]:!text-lg [&_span]:!text-[16px] [&_span]:opacity-75 transition-transform duration-200 ease-in-out scale-100 cursor-pointer touch-manipulation active:scale-95 *:leading-tight *:tracking-tight">
         <h3 suppressHydrationWarning>
-          {year}
-          <span>년</span> {month}
-          <span>월</span> {day}
+          {now?.year ?? "-----"}
+          <span>년</span> {now?.month ?? "--"}
+          <span>월</span> {now?.day ?? "--"}
           <span>일</span>
         </h3>
         <h3 suppressHydrationWarning>
-          {weekday}
+          {now?.weekday ?? "--"}
           <span>요일</span>
         </h3>
       </div>
